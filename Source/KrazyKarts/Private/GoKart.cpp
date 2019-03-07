@@ -3,6 +3,7 @@
 #include "GoKart.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AGoKart::AGoKart()
@@ -20,6 +21,23 @@ void AGoKart::BeginPlay()
 	
 }
 
+FString GetEnumText(ENetRole Role)
+{
+	switch (Role)
+	{
+	case ROLE_None:
+		return "None";
+	case ROLE_SimulatedProxy:
+		return "SimulatedProxy";
+	case ROLE_AutonomousProxy:
+		return "AutonomousProxy";
+	case ROLE_Authority:
+		return "Authority";
+	default:
+		return "Error";
+	}
+}
+
 // Called every frame
 void AGoKart::Tick(float DeltaTime)
 {
@@ -29,9 +47,12 @@ void AGoKart::Tick(float DeltaTime)
 	FVector Acceleration = Force / Mass;
 
 	Velocity += Acceleration * DeltaTime;
-
+	
 	UpdateRotationFromSteering(DeltaTime);
 	UpdateLocationFromVelocity(DeltaTime);
+
+	DrawDebugString(GetWorld(), FVector(0, 0, 1), GetEnumText(Role), this, FColor::White, DeltaTime);
+
 }
 
 FVector AGoKart::CalculateForceOnCar()
@@ -46,8 +67,10 @@ FVector AGoKart::CalculateForceOnCar()
 
 void AGoKart::UpdateRotationFromSteering(float DeltaTime)
 {
-	float RotationAngle = MaxDegreesPerSecond * DeltaTime * SteeringThrow;
-	FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(RotationAngle));
+	float RotationAngle = SteeringThrow * FVector::DotProduct(GetActorForwardVector(), Velocity) * DeltaTime / MinTurningRadius;
+	
+	// dx = dtheta x SteeringCircleRadius
+	FQuat RotationDelta(GetActorUpVector(), RotationAngle);
 
 	AddActorWorldRotation(RotationDelta);
 	// Rotate Velocity with the RotationDelta
@@ -76,10 +99,33 @@ void AGoKart::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AGoKart::MoveForward(float Value)
 {
 	Throttle = Value;
+	Server_MoveForward(Value);
+}
+
+void AGoKart::Server_MoveForward_Implementation(float Value)
+{
+	Throttle = Value;
+}
+
+bool AGoKart::Server_MoveForward_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1;
 }
 
 void AGoKart::MoveRight(float Value)
 {
 	SteeringThrow = Value;
+	Server_MoveRight(Value);
+}
+
+
+void AGoKart::Server_MoveRight_Implementation(float Value)
+{
+	SteeringThrow = Value;
+}
+
+bool AGoKart::Server_MoveRight_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1;
 }
 

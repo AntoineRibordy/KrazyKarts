@@ -43,9 +43,9 @@ private:
 	UPROPERTY(EditAnywhere)
 	float RollingResistanceCoefficient = 0.015;
 
-	// The number of degrees rotated per second at full control throw
+	// Minimum radius of the kart turning circle at full lock (m)
 	UPROPERTY(EditAnywhere)
-	float MaxDegreesPerSecond = 90;
+	float MinTurningRadius = 5;
 
 	FVector Velocity;
 	float Throttle;
@@ -54,7 +54,16 @@ private:
 
 	FVector CalculateForceOnCar();
 	void UpdateLocationFromVelocity(float DeltaTime);
+	
 	void UpdateRotationFromSteering(float DeltaTime);
+
 	void MoveForward(float InputVelocity);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MoveForward(float InputVelocity);
+
 	void MoveRight(float Value);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MoveRight(float Value);
 };
