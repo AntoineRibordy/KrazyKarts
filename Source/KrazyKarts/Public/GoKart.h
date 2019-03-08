@@ -48,6 +48,13 @@ private:
 	float MinTurningRadius = 5;
 
 	FVector Velocity;
+
+	UPROPERTY(ReplicatedUsing= OnRep_ReplicatedTransform)
+	FTransform ReplicatedTransform;
+	
+	UFUNCTION()
+	void OnRep_ReplicatedTransform();
+
 	float Throttle;
 	float SteeringThrow;
 	float AccelerationDueToGravity;

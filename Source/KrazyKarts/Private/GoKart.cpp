@@ -4,6 +4,7 @@
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
+#include "UnrealNetwork.h"
 
 // Sets default values
 AGoKart::AGoKart()
@@ -18,7 +19,17 @@ void AGoKart::BeginPlay()
 {
 	Super::BeginPlay();
 	AccelerationDueToGravity = GetWorld()->GetGravityZ() / 100;
-	
+	bReplicates = true;
+	if (HasAuthority())
+	{
+		NetUpdateFrequency = 1;
+	}
+}
+
+void AGoKart::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AGoKart, ReplicatedTransform);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -38,6 +49,12 @@ FString GetEnumText(ENetRole Role)
 	}
 }
 
+// Called every time there's an update on the actor's transform on the server
+void AGoKart::OnRep_ReplicatedTransform()
+{
+	SetActorTransform(ReplicatedTransform);
+}
+
 // Called every frame
 void AGoKart::Tick(float DeltaTime)
 {
@@ -52,6 +69,11 @@ void AGoKart::Tick(float DeltaTime)
 	UpdateLocationFromVelocity(DeltaTime);
 
 	DrawDebugString(GetWorld(), FVector(0, 0, 1), GetEnumText(Role), this, FColor::White, DeltaTime);
+
+	if (HasAuthority())
+	{
+		ReplicatedTransform = GetActorTransform();
+	}	
 
 }
 
