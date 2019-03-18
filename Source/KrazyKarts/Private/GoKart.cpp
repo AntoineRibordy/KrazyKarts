@@ -30,6 +30,9 @@ void AGoKart::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifeti
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AGoKart, ReplicatedTransform);
+	DOREPLIFETIME(AGoKart, Velocity);
+	DOREPLIFETIME(AGoKart, Throttle);
+	DOREPLIFETIME(AGoKart, SteeringThrow);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -52,6 +55,7 @@ FString GetEnumText(ENetRole Role)
 // Called every time there's an update on the actor's transform on the server
 void AGoKart::OnRep_ReplicatedTransform()
 {
+	// Compare transform and velocity from server to our record, add the delta
 	SetActorTransform(ReplicatedTransform);
 }
 
@@ -59,6 +63,9 @@ void AGoKart::OnRep_ReplicatedTransform()
 void AGoKart::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	// Send inputs to the server (Throttle, SteeringThrow) & keep a record of our transform and velocity
+	// if (HasAuthority())
+	// Simulate move based on inputs
 
 	FVector Force = CalculateForceOnCar();
 	FVector Acceleration = Force / Mass;
@@ -76,6 +83,12 @@ void AGoKart::Tick(float DeltaTime)
 	}	
 
 }
+
+// void AGoKart::Move()
+//{}
+
+// void AGoKart::Server_Move_Implementation()
+// void AGoKart::Server_Move_Validate()
 
 FVector AGoKart::CalculateForceOnCar()
 {
