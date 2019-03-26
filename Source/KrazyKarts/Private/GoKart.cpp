@@ -30,8 +30,6 @@ void AGoKart::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifeti
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AGoKart, ServerState);
-	DOREPLIFETIME(AGoKart, Throttle);
-	DOREPLIFETIME(AGoKart, SteeringThrow);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -57,6 +55,7 @@ void AGoKart::OnRep_ServerState()
 	// Compare transform and velocity from server to our record, add the delta
 	SetActorTransform(ServerState.Transform);
 	Velocity = ServerState.Velocity;
+	ClearAcknowledgedMoves(ServerState.LastMove);
 }
 
 // Called every frame
@@ -64,39 +63,69 @@ void AGoKart::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (IsLocallyControlled())
+	if (Role == ROLE_AutonomousProxy)
 	{
-		FGoKartMove Move;
-		Move.DeltaTime = DeltaTime;
-		Move.Throttle = Throttle;
-		Move.SteeringThrow = SteeringThrow;
-		Move.Time = GetWorld()->TimeSeconds;
+		FGoKartMove Move = CreateMove(DeltaTime);
+		SimulateMove(Move);
+		UnacknowledgedMoves.Add(Move);
+		Server_SendMove(Move);
+		//UE_LOG(LogTemp, Warning, TEXT("Queue length: %d"), UnacknowledgedMoves.Num());
+	}
 
+	// We are the server and in control of the pawn
+	if (Role == ROLE_Authority && GetRemoteRole() == ROLE_SimulatedProxy)
+	{
+		FGoKartMove Move = CreateMove(DeltaTime);
 		Server_SendMove(Move);
 	}
 
-	FVector Force = CalculateForceOnCar();
+	if (Role == ROLE_SimulatedProxy)
+	{
+		SimulateMove(ServerState.LastMove);
+	}
+	
+	DrawDebugString(GetWorld(), FVector(0, 0, 1), GetEnumText(Role), this, FColor::White, GetWorld()->DeltaTimeSeconds);
+}
+
+void AGoKart::ClearAcknowledgedMoves(FGoKartMove LastMove)
+{
+	TArray<FGoKartMove> NewMoves;
+
+	for (const FGoKartMove& Move : UnacknowledgedMoves)
+	{
+		if (Move.Time > LastMove.Time)
+		{
+			NewMoves.Add(Move);
+		}
+	}
+	UnacknowledgedMoves = NewMoves;
+}
+
+void AGoKart::SimulateMove(FGoKartMove Move)
+{
+	FVector Force = CalculateForceOnCar(Move);
 	FVector Acceleration = Force / Mass;
 
-	Velocity += Acceleration * DeltaTime;
-	
-	UpdateRotationFromSteering(DeltaTime);
-	UpdateLocationFromVelocity(DeltaTime);
+	Velocity += Acceleration * Move.DeltaTime; // Move.DeltaTime;
 
-	DrawDebugString(GetWorld(), FVector(0, 0, 1), GetEnumText(Role), this, FColor::White, DeltaTime);
-	
-	if (HasAuthority())
-	{
-		ServerState.Transform = GetActorTransform();
-		ServerState.Velocity = Velocity;
-		//TODO: update last move ServerState.LastMove = 
-	}	
+	UpdateRotationFromSteering(Move.DeltaTime, Move.SteeringThrow);
+	UpdateLocationFromVelocity(Move.DeltaTime);
 
 }
 
-FVector AGoKart::CalculateForceOnCar()
+FGoKartMove AGoKart::CreateMove(float DeltaTime)
 {
-	FVector ForwardForce = GetActorForwardVector() * MaxDrivingForce * Throttle;
+	FGoKartMove Move;
+	Move.DeltaTime = DeltaTime;
+	Move.Throttle = Throttle;
+	Move.SteeringThrow = SteeringThrow;
+	Move.Time = GetWorld()->TimeSeconds;
+	return Move;
+}
+
+FVector AGoKart::CalculateForceOnCar(FGoKartMove Move)
+{
+	FVector ForwardForce = GetActorForwardVector() * MaxDrivingForce * Move.Throttle;
 	float AirResistance = Velocity.SizeSquared() * DragCoefficient;
 	FVector DragForce = Velocity.GetSafeNormal() * AirResistance;
 	FVector NormalForce = -Velocity.GetSafeNormal() * Mass * RollingResistanceCoefficient * AccelerationDueToGravity;
@@ -104,7 +133,7 @@ FVector AGoKart::CalculateForceOnCar()
 	return ForwardForce - DragForce - NormalForce;
 }
 
-void AGoKart::UpdateRotationFromSteering(float DeltaTime)
+void AGoKart::UpdateRotationFromSteering(float DeltaTime, float SteeringThrow)
 {
 	float RotationAngle = SteeringThrow * FVector::DotProduct(GetActorForwardVector(), Velocity) * DeltaTime / MinTurningRadius;
 	
@@ -147,13 +176,16 @@ void AGoKart::MoveRight(float Value)
 
 void AGoKart::Server_SendMove_Implementation(FGoKartMove Move)
 {
-	Throttle = Move.Throttle;
-	SteeringThrow = Move.SteeringThrow;
+	SimulateMove(Move);
+
+	ServerState.LastMove = Move;
+	ServerState.Transform = GetActorTransform();
+	ServerState.Velocity = Velocity;
 }
 
 bool AGoKart::Server_SendMove_Validate(FGoKartMove Move)
 {
 	//return FMath::Abs(Move.Throttle) <= 1 && FMath::Abs(Move.SteeringThrow) <= 1;
-	return true;
+	return true; // TODO: Make better validation
 }
 

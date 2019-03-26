@@ -61,6 +61,11 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
 private:
+	void SimulateMove(FGoKartMove Move);
+	FGoKartMove CreateMove(float DeltaTime);
+
+	void ClearAcknowledgedMoves(FGoKartMove LastMove);
+
 	// The mass of the car (in kg)
 	UPROPERTY(EditAnywhere)
 	float Mass = 1000;
@@ -87,20 +92,10 @@ private:
 	UFUNCTION()
 	void OnRep_ServerState();
 
-	FVector Velocity;
-
-	UPROPERTY(Replicated)
-	float Throttle;
-
-	UPROPERTY(Replicated)
-	float SteeringThrow;
-
-	float AccelerationDueToGravity;
-
-	FVector CalculateForceOnCar();
+	FVector CalculateForceOnCar(FGoKartMove Move);
 	void UpdateLocationFromVelocity(float DeltaTime);
 	
-	void UpdateRotationFromSteering(float DeltaTime);
+	void UpdateRotationFromSteering(float DeltaTime, float SteeringThrow);
 
 	void MoveForward(float InputVelocity);
 	void MoveRight(float Value);
@@ -108,5 +103,12 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SendMove(FGoKartMove Move);
 
-	
+	FVector Velocity;
+
+	float Throttle;
+	float SteeringThrow;
+
+	float AccelerationDueToGravity;
+
+	TArray<FGoKartMove> UnacknowledgedMoves;
 };
