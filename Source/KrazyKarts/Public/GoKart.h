@@ -4,41 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "GoKartMovementComponent.h"
+#include "GoKartMovementReplicator.h"
 #include "GoKart.generated.h"
-
-USTRUCT()
-struct FGoKartMove
-{
-	GENERATED_USTRUCT_BODY();
-	
-	UPROPERTY()
-	float Throttle;
-	
-	UPROPERTY()
-	float SteeringThrow;
-	
-	UPROPERTY()
-	float DeltaTime;
-	
-	UPROPERTY()
-	float Time;
-};
-
-USTRUCT()
-struct FGoKartState
-{
-	GENERATED_USTRUCT_BODY();
-	
-	UPROPERTY()
-	FGoKartMove LastMove;
-	
-	UPROPERTY()
-	FTransform Transform;
-	
-	UPROPERTY()
-	FVector Velocity;
-	
-};
 
 UCLASS()
 class KRAZYKARTS_API AGoKart : public APawn
@@ -61,54 +29,13 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
 private:
-	void SimulateMove(FGoKartMove Move);
-	FGoKartMove CreateMove(float DeltaTime);
+	UPROPERTY(VisibleAnywhere)
+	class UGoKartMovementComponent* MovementComponent;
 
-	void ClearAcknowledgedMoves(FGoKartMove LastMove);
-
-	// The mass of the car (in kg)
-	UPROPERTY(EditAnywhere)
-	float Mass = 1000;
-
-	// The force applied to the car whe the throttle is fully down (N)
-	UPROPERTY(EditAnywhere)
-	float MaxDrivingForce = 10000;
-
-	// Higher means more drag (kg/m)
-	UPROPERTY(EditAnywhere)
-	float DragCoefficient = 16;
-
-	// Higher means more rolling resistance
-	UPROPERTY(EditAnywhere)
-	float RollingResistanceCoefficient = 0.015;
-
-	// Minimum radius of the kart turning circle at full lock (m)
-	UPROPERTY(EditAnywhere)
-	float MinTurningRadius = 5;
-
-	UPROPERTY(ReplicatedUsing = OnRep_ServerState)
-	FGoKartState ServerState;
-
-	UFUNCTION()
-	void OnRep_ServerState();
-
-	FVector CalculateForceOnCar(FGoKartMove Move);
-	void UpdateLocationFromVelocity(float DeltaTime);
-	
-	void UpdateRotationFromSteering(float DeltaTime, float SteeringThrow);
+	UPROPERTY(VisibleAnywhere)
+	class UGoKartMovementReplicator* MovementReplicator;
 
 	void MoveForward(float InputVelocity);
 	void MoveRight(float Value);
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SendMove(FGoKartMove Move);
 
-	FVector Velocity;
-
-	float Throttle;
-	float SteeringThrow;
-
-	float AccelerationDueToGravity;
-
-	TArray<FGoKartMove> UnacknowledgedMoves;
 };
