@@ -20,6 +20,7 @@ void AGoKart::BeginPlay()
 {
 	Super::BeginPlay();
 	bReplicates = true;
+	bReplicateMovement = false;
 	if (HasAuthority())
 	{
 		NetUpdateFrequency = 1;

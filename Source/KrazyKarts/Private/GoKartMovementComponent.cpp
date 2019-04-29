@@ -39,7 +39,7 @@ void UGoKartMovementComponent::SimulateMove(FGoKartMove Move)
 	FVector Force = CalculateForceOnCar(Move);
 	FVector Acceleration = Force / Mass;
 
-	Velocity += Acceleration * Move.DeltaTime; // Move.DeltaTime;
+	Velocity += Acceleration * Move.DeltaTime; 
 
 	UpdateRotationFromSteering(Move.DeltaTime, Move.SteeringThrow);
 	UpdateLocationFromVelocity(Move.DeltaTime);
